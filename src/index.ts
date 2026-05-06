@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { createAgentSession, SessionManager } from "@mariozechner/pi-coding-agent";
+import { createAgentSession, SessionManager, DefaultResourceLoader, getAgentDir } from "@mariozechner/pi-coding-agent";
 import { spawnSync } from "node:child_process";
 
 export default function (pi: ExtensionAPI) {
@@ -38,20 +38,24 @@ export default function (pi: ExtensionAPI) {
 
       // 4. Find a "cheap" model
       const models = await ctx.modelRegistry.getAvailable();
-      // Try to find a smaller/cheaper model (gpt-4o-mini, haiku, flash, etc.)
-      const miniModel = models.find(m =>
-        m.id.toLowerCase().includes("gpt-5-mini") ||
-        m.id.toLowerCase().includes("mini") ||
-        m.id.toLowerCase().includes("haiku") ||
-        m.id.toLowerCase().includes("flash") ||
-        m.id.toLowerCase().includes("llama-3-8b") ||
-        m.id.toLowerCase().includes("llama-3.1-8b")
-      ) || ctx.model;
+      // Try to find a smaller/cheaper model, prioritizing gpt-5-mini
+      const cheapPatterns = ["gpt-5-mini", "mini", "haiku", "flash", "llama-3-8b", "llama-3.1-8b"];
+      let miniModel = ctx.model;
+
+      for (const pattern of cheapPatterns) {
+        const found = models.find((m) => m.id.toLowerCase().includes(pattern));
+        if (found) {
+          miniModel = found;
+          break;
+        }
+      }
 
       if (!miniModel) {
         ctx.ui.notify("No suitable model found to generate commit message", "error");
         return;
       }
+
+      ctx.ui.notify(`Generating commit message using ${miniModel.id}...`, "info");
 
       ctx.ui.notify(`Generating commit message using ${miniModel.id}...`, "info");
 
@@ -69,11 +73,25 @@ ${diff.slice(0, 20000)} ${diff.length > 20000 ? "\n...(diff truncated)..." : ""}
 
       let commitMsg = "";
       try {
+        const resourceLoader = new DefaultResourceLoader({
+          cwd: ctx.cwd,
+          agentDir: getAgentDir(),
+          systemPromptOverride: () => "You are a helpful assistant.",
+          noExtensions: true,
+          noSkills: true,
+          noPromptTemplates: true,
+          noContextFiles: true,
+        });
+        await resourceLoader.reload();
+
         const { session } = await createAgentSession({
+          cwd: ctx.cwd,
+          agentDir: getAgentDir(),
           model: miniModel,
           sessionManager: SessionManager.inMemory(),
           authStorage: ctx.modelRegistry.authStorage,
           modelRegistry: ctx.modelRegistry,
+          resourceLoader,
           noTools: "all",
         });
 

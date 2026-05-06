@@ -107,6 +107,7 @@ export default function (pi: ExtensionAPI) {
       const prompt = `You are an expert at writing git commit messages.
 Based on the following last 5 commit messages and the current diff, provide a meaningful, concise commit message.
 Follow the project style seen in the history.
+The first line (title) must be at most 72 characters long.
 Return ONLY the commit message, no other text or markdown formatting.
 
 Last commit messages:

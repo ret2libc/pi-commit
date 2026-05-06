@@ -13,18 +13,6 @@ A Pi extension that adds a `/commit` command to generate and execute git commits
 
 ## Installation
 
-1. Clone this repository into your Pi extensions directory:
-   ```bash
-   git clone https://github.com/ret2libc/pi-commit.git ~/.pi/agent/extensions/pi-commit
-   ```
-2. Install dependencies:
-   ```bash
-   cd ~/.pi/agent/extensions/pi-commit
-   npm install
-   ```
-3. Restart Pi or use `/reload`.
-
-Alternatively, you can install it as a Pi package (if published):
 ```bash
 pi install git:github.com/ret2libc/pi-commit
 ```
@@ -38,6 +26,7 @@ In any Pi session within a git repository:
 ```
 
 You can also specify a model ID to override the default selection:
+
 ```
 /commit gpt-4o-mini
 ```
@@ -45,6 +34,7 @@ You can also specify a model ID to override the default selection:
 ## Configuration
 
 The extension uses your existing Pi model configuration. It will prioritize models in this order:
+
 1. Model ID passed as an argument to `/commit`.
 2. Model ID specified via the `--commit-model` CLI flag.
 3. Model ID specified in `~/.pi/agent/pi-commit.json` (see below).
@@ -52,7 +42,9 @@ The extension uses your existing Pi model configuration. It will prioritize mode
 5. The currently active model in the session.
 
 ### Permanent Configuration
+
 To set a permanent default model for this extension, create a file at `~/.pi/agent/pi-commit.json`:
+
 ```json
 {
   "model": "gpt-5-mini"

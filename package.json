@@ -1,0 +1,28 @@
+{
+  "name": "pi-commit",
+  "version": "1.0.0",
+  "description": "Pi extension to generate git commit messages",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "npx jiti test-extension.ts"
+  },
+  "keywords": [
+    "pi",
+    "extension",
+    "git",
+    "commit"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mariozechner/pi-ai": "^0.73.0",
+    "@mariozechner/pi-coding-agent": "^0.73.0",
+    "typebox": "^1.1.38"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}

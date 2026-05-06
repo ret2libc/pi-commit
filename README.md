@@ -36,16 +36,27 @@ In any Pi session within a git repository:
 /commit
 ```
 
-The extension will:
-1. Check for changes (staged or unstaged).
-2. Gather recent commit history.
-3. Generate a commit message using a suitable AI model.
-4. Show you the message and ask for confirmation.
-5. Execute `git commit`.
+You can also specify a model ID to override the default selection:
+```
+/commit gpt-4o-mini
+```
 
 ## Configuration
 
-The extension uses your existing Pi model configuration. It will prioritize models with names containing "mini", "haiku", or "flash" if available.
+The extension uses your existing Pi model configuration. It will prioritize models in this order:
+1. Model ID passed as an argument to `/commit`.
+2. Model ID specified via the `--commit-model` CLI flag.
+3. Model ID specified in `~/.pi/agent/pi-commit.json` (see below).
+4. Automatically detected "cheap" models (prioritizing `gpt-5-mini`, then any containing `mini`, `haiku`, `flash`, or `llama-3-8b`).
+5. The currently active model in the session.
+
+### Permanent Configuration
+To set a permanent default model for this extension, create a file at `~/.pi/agent/pi-commit.json`:
+```json
+{
+  "model": "gpt-5-mini"
+}
+```
 
 ## License
 

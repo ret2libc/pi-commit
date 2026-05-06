@@ -1,11 +1,32 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createAgentSession, SessionManager, DefaultResourceLoader, getAgentDir } from "@mariozechner/pi-coding-agent";
 import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 
 export default function (pi: ExtensionAPI) {
+  pi.registerFlag("commit-model", {
+    description: "Default model to use for commit message generation",
+    type: "string",
+  });
+
+  const getPermanentModel = (): string | undefined => {
+    try {
+      const configPath = join(getAgentDir(), "pi-commit.json");
+      if (existsSync(configPath)) {
+        const config = JSON.parse(readFileSync(configPath, "utf-8"));
+        return config.model;
+      }
+    } catch (e) {
+      // Ignore config read errors
+    }
+    return undefined;
+  };
+
   pi.registerCommand("commit", {
-    description: "Generate a commit message and commit changes",
-    handler: async (_args, ctx) => {
+    description: "Generate a commit message and commit changes. Usage: /commit [model-id]",
+    handler: async (args, ctx) => {
+      const overrideModelId = args.trim();
       // 1. Check if it's a git repo
       const gitStatus = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { encoding: "utf-8" });
       if (gitStatus.status !== 0) {
@@ -38,15 +59,39 @@ export default function (pi: ExtensionAPI) {
 
       // 4. Find a "cheap" model
       const models = await ctx.modelRegistry.getAvailable();
-      // Try to find a smaller/cheaper model, prioritizing gpt-5-mini
-      const cheapPatterns = ["gpt-5-mini", "mini", "haiku", "flash", "llama-3-8b", "llama-3.1-8b"];
       let miniModel = ctx.model;
 
-      for (const pattern of cheapPatterns) {
-        const found = models.find((m) => m.id.toLowerCase().includes(pattern));
+      if (overrideModelId) {
+        const found = models.find((m) => m.id.toLowerCase().includes(overrideModelId.toLowerCase()));
         if (found) {
           miniModel = found;
-          break;
+        } else {
+          ctx.ui.notify(`Model "${overrideModelId}" not found or not available.`, "warning");
+        }
+      } else {
+        // Try flag first, then permanent config, then hardcoded patterns
+        const flagModel = pi.getFlag("commit-model");
+        const permanentModel = getPermanentModel();
+        const preferredModel = (typeof flagModel === "string" ? flagModel : permanentModel);
+
+        if (preferredModel) {
+          const found = models.find((m) => m.id.toLowerCase().includes(preferredModel.toLowerCase()));
+          if (found) {
+            miniModel = found;
+          }
+        }
+
+        if (miniModel === ctx.model) {
+          // Try to find a smaller/cheaper model, prioritizing gpt-5-mini
+          const cheapPatterns = ["gpt-5-mini", "mini", "haiku", "flash", "llama-3-8b", "llama-3.1-8b"];
+
+          for (const pattern of cheapPatterns) {
+            const found = models.find((m) => m.id.toLowerCase().includes(pattern));
+            if (found) {
+              miniModel = found;
+              break;
+            }
+          }
         }
       }
 

@@ -14,7 +14,7 @@ A Pi extension that adds a `/commit` command to generate and execute git commits
 
 1. Clone this repository into your Pi extensions directory:
    ```bash
-   git clone https://github.com/youruser/pi-commit.git ~/.pi/agent/extensions/pi-commit
+   git clone https://github.com/ret2libc/pi-commit.git ~/.pi/agent/extensions/pi-commit
    ```
 2. Install dependencies:
    ```bash
@@ -25,7 +25,7 @@ A Pi extension that adds a `/commit` command to generate and execute git commits
 
 Alternatively, you can install it as a Pi package (if published):
 ```bash
-pi install git:github.com/youruser/pi-commit
+pi install git:github.com/ret2libc/pi-commit
 ```
 
 ## Usage

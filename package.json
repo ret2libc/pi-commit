@@ -13,7 +13,7 @@
     "git",
     "commit"
   ],
-  "author": "",
+  "author": "ret2libc",
   "license": "MIT",
   "dependencies": {
     "@mariozechner/pi-ai": "^0.73.0",

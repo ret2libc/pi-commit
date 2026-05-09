@@ -1,8 +1,30 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createAgentSession, SessionManager, DefaultResourceLoader, getAgentDir } from "@mariozechner/pi-coding-agent";
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+
+async function runGit(args: string[], options: { cwd?: string; encoding?: BufferEncoding } = {}) {
+  return new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve) => {
+    const child = spawn("git", args, { cwd: options.cwd });
+    let stdout = "";
+    let stderr = "";
+    if (child.stdout) {
+      child.stdout.setEncoding(options.encoding ?? "utf-8");
+      child.stdout.on("data", (chunk: string) => (stdout += chunk));
+    }
+    if (child.stderr) {
+      child.stderr.setEncoding(options.encoding ?? "utf-8");
+      child.stderr.on("data", (chunk: string) => (stderr += chunk));
+    }
+    child.on("error", (err) => {
+      resolve({ status: null, stdout, stderr: String(err) });
+    });
+    child.on("close", (code) => {
+      resolve({ status: code ?? null, stdout, stderr });
+    });
+  });
+}
 
 export default function (pi: ExtensionAPI) {
   pi.registerFlag("commit-model", {
@@ -28,22 +50,21 @@ export default function (pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       const overrideModelId = args.trim();
       // 1. Check if it's a git repo
-      const gitStatus = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { encoding: "utf-8" });
+      const gitStatus = await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: ctx.cwd, encoding: "utf-8" });
       if (gitStatus.status !== 0) {
         ctx.ui.notify("Not a git repository", "error");
         return;
       }
 
       // 2. Get last 5 commit messages
-      const lastCommits = spawnSync(
-        "git",
+      const lastCommits = (await runGit(
         ["log", "-n", "5", "--no-merges", "--invert-grep", "--grep=dependabot", "--format=%B%n---"],
         { encoding: "utf-8", cwd: ctx.cwd }
-      ).stdout;
+      )).stdout;
 
       // 3. Get diff
-      const stagedDiff = spawnSync("git", ["diff", "--staged"], { encoding: "utf-8", cwd: ctx.cwd }).stdout;
-      const unstagedDiff = spawnSync("git", ["diff"], { encoding: "utf-8", cwd: ctx.cwd }).stdout;
+      const stagedDiff = (await runGit(["diff", "--staged"], { encoding: "utf-8", cwd: ctx.cwd })).stdout;
+      const unstagedDiff = (await runGit(["diff"], { encoding: "utf-8", cwd: ctx.cwd })).stdout;
 
       let diff = stagedDiff;
       let isStaged = true;
@@ -170,7 +191,7 @@ ${diff.slice(0, 20000)} ${diff.length > 20000 ? "\n...(diff truncated)..." : ""}
         if (!isStaged) {
           const addAll = await ctx.ui.confirm("Stage changes?", "No files are staged. Stage all tracked changes before committing?");
           if (addAll) {
-            const addResult = spawnSync("git", ["add", "-u"], { cwd: ctx.cwd });
+            const addResult = await runGit(["add", "-u"], { cwd: ctx.cwd });
             if (addResult.status !== 0) {
               ctx.ui.notify(`Failed to stage changes: ${addResult.stderr}`, "error");
               return;
@@ -181,7 +202,7 @@ ${diff.slice(0, 20000)} ${diff.length > 20000 ? "\n...(diff truncated)..." : ""}
           }
         }
 
-        const commitResult = spawnSync("git", ["commit", "-m", commitMsg], { encoding: "utf-8", cwd: ctx.cwd });
+        const commitResult = await runGit(["commit", "-m", commitMsg], { encoding: "utf-8", cwd: ctx.cwd });
         if (commitResult.status === 0) {
           ctx.ui.notify("Changes committed successfully!", "success");
         } else {

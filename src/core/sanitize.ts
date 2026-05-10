@@ -1,4 +1,5 @@
-const MAX_TITLE_LENGTH = 72;
+import { TITLE_MAX_LENGTH } from "./prompt.ts";
+
 
 export function sanitizeCommitMessage(commitMsg: string): string {
   let cleaned = stripUnsafeCharacters(commitMsg).trim();
@@ -7,10 +8,10 @@ export function sanitizeCommitMessage(commitMsg: string): string {
     cleaned = cleaned.replace(/^```[a-z0-9_-]*\s*\n/i, "").replace(/\n```$/i, "").trim();
   }
 
-  return limitCommitTitleLength(cleaned);
+  return limitCommitTitleLength(cleaned, TITLE_MAX_LENGTH);
 }
 
-export function limitCommitTitleLength(commitMsg: string, maxTitleLength: number = MAX_TITLE_LENGTH): string {
+export function limitCommitTitleLength(commitMsg: string, maxTitleLength: number = TITLE_MAX_LENGTH): string {
   const trimmed = commitMsg.trim();
   if (!trimmed) {
     return trimmed;

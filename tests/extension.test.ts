@@ -14,8 +14,10 @@ async function runScenario(options: {
   responseText: string;
   expectedCommitMessage: string;
   stagedDiff?: boolean;
+  modifyTrackedFile?: boolean;
   untrackedFiles?: Array<{ name: string; content: string }>;
   overrideArgs?: string;
+  expectedSelectedModelId?: string;
 }) {
   const tmpDir = mkdtempSync(join(tmpdir(), `pi-commit-test-${options.name}-`));
   const projectDir = join(tmpDir, "project");
@@ -32,7 +34,9 @@ async function runScenario(options: {
     spawnSync("git", ["add", "initial.txt"], { cwd: projectDir, stdio: "ignore" });
     spawnSync("git", ["commit", "-m", "initial commit"], { cwd: projectDir, stdio: "ignore" });
 
-    writeFileSync(join(projectDir, "initial.txt"), "hello world changed");
+    if (options.modifyTrackedFile !== false) {
+      writeFileSync(join(projectDir, "initial.txt"), "hello world changed");
+    }
     for (const untrackedFile of options.untrackedFiles ?? []) {
       writeFileSync(join(projectDir, untrackedFile.name), untrackedFile.content);
     }
@@ -116,7 +120,7 @@ async function runScenario(options: {
     }).stdout.trim();
 
     assert.equal(lastCommitMsg, options.expectedCommitMessage);
-    assert.equal(createSessionOptions.model.id, "openai/gpt-5-mini");
+    assert.equal(createSessionOptions.model.id, options.expectedSelectedModelId ?? "openai/gpt-5-mini");
     assert.equal(createSessionOptions.noTools, "all");
     assert.equal(promptMessages.length, 1);
     assert.ok(promptMessages[0].includes("Current diff:"));
@@ -125,9 +129,27 @@ async function runScenario(options: {
         assert.ok(promptMessages[0].includes(untrackedFile.name));
       }
     }
-    assert.equal(confirmCount, options.stagedDiff ? 1 : 2);
+
+    assert.deepEqual(confirms[0], {
+      title: "Commit changes?",
+      message: `Generated commit message:\n\n${options.expectedCommitMessage}`,
+    });
+
+    if (options.stagedDiff) {
+      assert.equal(confirmCount, 1);
+      assert.equal(confirms.length, 1);
+    } else {
+      const expectedStageMessage = options.untrackedFiles?.length
+        ? "No files are staged. Stage all tracked and untracked changes before committing?"
+        : "No files are staged. Stage all tracked changes before committing?";
+      assert.equal(confirmCount, 2);
+      assert.deepEqual(confirms[1], {
+        title: "Stage changes?",
+        message: expectedStageMessage,
+      });
+    }
+
     assert.ok(notifications.some((item) => item.message === "Changes committed successfully!"));
-    assert.ok(confirms.length >= 1);
 
     if (options.untrackedFiles?.length) {
       const committedFiles = spawnSync("git", ["show", "--pretty=", "--name-only", "HEAD"], {
@@ -135,8 +157,8 @@ async function runScenario(options: {
         encoding: "utf-8",
       }).stdout
         .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
+        .map((line) => line.replace(/\r$/, ""))
+        .filter((line) => line.length > 0);
       for (const untrackedFile of options.untrackedFiles) {
         assert.ok(committedFiles.includes(untrackedFile.name));
       }
@@ -252,10 +274,26 @@ export async function runExtensionTests() {
   });
 
   await runScenario({
+    name: "override-model-output",
+    responseText: fixture("fenced-message.txt"),
+    expectedCommitMessage: "feat: update initial.txt to say hello world",
+    overrideArgs: "claude",
+    expectedSelectedModelId: "anthropic/claude-3.5-sonnet",
+  });
+
+  await runScenario({
     name: "untracked-output",
     responseText: fixture("fenced-message.txt"),
     expectedCommitMessage: "feat: update initial.txt to say hello world",
     untrackedFiles: [{ name: "new-file.txt", content: "brand new file\n" }],
+  });
+
+  await runScenario({
+    name: "untracked-whitespace-path",
+    responseText: fixture("fenced-message.txt"),
+    expectedCommitMessage: "feat: update initial.txt to say hello world",
+    modifyTrackedFile: false,
+    untrackedFiles: [{ name: " leading.txt", content: "brand new file\n" }],
   });
 
   await runNoChangesTest();

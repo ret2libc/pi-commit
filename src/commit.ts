@@ -11,7 +11,7 @@ export type { CommitModelLike } from "./core/model-selection.ts";
 export { getPermanentCommitModel } from "./core/config.ts";
 export { getGitSnapshot, runGit } from "./core/git.ts";
 export { selectCommitDiff } from "./core/diff.ts";
-export { buildCommitPrompt, COMMIT_PROMPT_MAX_DIFF_CHARS, MAX_TITLE_LENGTH } from "./core/prompt.ts";
+export { buildCommitPrompt, COMMIT_PROMPT_MAX_DIFF_CHARS, TITLE_MAX_LENGTH as MAX_TITLE_LENGTH } from "./core/prompt.ts";
 export { parseCommitMessageOutput } from "./core/commit-message.ts";
 export { sanitizeCommitMessage } from "./core/sanitize.ts";
 export { selectCommitModel, DEFAULT_CHEAP_MODEL_PATTERNS } from "./core/model-selection.ts";
@@ -44,10 +44,28 @@ export interface ExtensionApiLike {
   getFlag: (name: string) => unknown;
 }
 
+export type CommitSessionEvent = {
+  type: string;
+  assistantMessageEvent?: {
+    type?: string;
+    delta?: string;
+  };
+};
+
 export type CommitSession = {
-  subscribe: (listener: (event: any) => void) => void;
+  subscribe: (listener: (event: CommitSessionEvent) => void) => void;
   prompt: (prompt: string) => Promise<void>;
 };
+
+function isTextDeltaEvent(event: CommitSessionEvent): event is CommitSessionEvent & {
+  type: "message_update";
+  assistantMessageEvent: {
+    type: "text_delta";
+    delta: string;
+  };
+} {
+  return event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta" && typeof event.assistantMessageEvent.delta === "string";
+}
 
 export type CommitExtensionDeps = {
   runGit: typeof import("./core/git.ts").runGit;
@@ -142,7 +160,7 @@ export function createCommitCommandHandler(
       });
 
       session.subscribe((event) => {
-        if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
+        if (isTextDeltaEvent(event)) {
           commitMsg += event.assistantMessageEvent.delta;
         }
       });

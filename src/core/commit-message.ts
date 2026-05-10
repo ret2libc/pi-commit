@@ -1,6 +1,5 @@
+import { TITLE_MAX_LENGTH } from "./prompt.ts";
 import { sanitizeCommitMessage, stripUnsafeCharacters } from "./sanitize.ts";
-
-const MAX_TITLE_LENGTH = 72;
 
 export function parseCommitMessageOutput(raw: string): string | null {
   const structured = parseStructuredCommitMessage(raw);
@@ -14,13 +13,12 @@ export function parseCommitMessageOutput(raw: string): string | null {
 
 function parseStructuredCommitMessage(raw: string): { title: string; body?: string } | null {
   const candidate = unwrapFence(raw).trim();
-  const jsonText = extractJsonObject(candidate);
-  if (!jsonText) {
+  if (!candidate.startsWith("{") || !candidate.endsWith("}")) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+    const parsed = JSON.parse(candidate) as Record<string, unknown>;
     const title = sanitizeCommitTitle(typeof parsed.title === "string" ? parsed.title : "");
     if (!title) {
       return null;
@@ -43,7 +41,7 @@ function sanitizeCommitTitle(title: string): string {
     return "";
   }
 
-  return clean.length > MAX_TITLE_LENGTH ? clean.slice(0, MAX_TITLE_LENGTH).trimEnd() : clean;
+  return clean.length > TITLE_MAX_LENGTH ? clean.slice(0, TITLE_MAX_LENGTH).trimEnd() : clean;
 }
 
 function sanitizeCommitBody(body: string): string {
@@ -64,19 +62,4 @@ function unwrapFence(text: string): string {
   const trimmed = text.trim();
   const fenceMatch = trimmed.match(/^```(?:[a-z0-9_-]+)?\s*\n([\s\S]*?)\n```$/i);
   return fenceMatch ? fenceMatch[1] : trimmed;
-}
-
-function extractJsonObject(text: string): string | null {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    return trimmed;
-  }
-
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start === -1 || end <= start) {
-    return null;
-  }
-
-  return trimmed.slice(start, end + 1);
 }

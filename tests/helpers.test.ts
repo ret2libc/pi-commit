@@ -27,6 +27,10 @@ export async function runHelperTests() {
     "feat: move commit prompt into a file\n\nAdd structured JSON parsing with raw-output fallback.",
   );
   assert.equal(parseCommitMessageOutput("fix: accept freeform commit output"), "fix: accept freeform commit output");
+  assert.equal(
+    parseCommitMessageOutput('feat: add object support\n\nSee example:\n{"title":"ignore me"}'),
+    'feat: add object support\n\nSee example:\n{"title":"ignore me"}',
+  );
 
   const longStructuredTitle = parseCommitMessageOutput(JSON.stringify({
     title: "x".repeat(80),
@@ -97,6 +101,9 @@ export async function runHelperTests() {
   const tempAgentDir = mkdtempSync(join(tmpdir(), "pi-commit-helper-"));
   try {
     writeFileSync(join(tempAgentDir, "pi-commit.json"), fixture("pi-commit.json"));
+    assert.equal(getPermanentCommitModel(tempAgentDir), "claude");
+
+    writeFileSync(join(tempAgentDir, "pi-commit.json"), JSON.stringify({ model: " claude " }));
     assert.equal(getPermanentCommitModel(tempAgentDir), "claude");
     rmSync(join(tempAgentDir, "pi-commit.json"));
     assert.equal(getPermanentCommitModel(tempAgentDir), undefined);

@@ -57,15 +57,14 @@ export async function getGitSnapshot(cwd: string, runGitImpl: typeof runGit = ru
 }
 
 async function getUntrackedDiff(cwd: string, runGitImpl: typeof runGit): Promise<string> {
-  const listResult = await runGitImpl(["ls-files", "--others", "--exclude-standard"], { cwd, encoding: "utf-8" });
+  const listResult = await runGitImpl(["ls-files", "-z", "--others", "--exclude-standard"], { cwd, encoding: "utf-8" });
   if (listResult.status !== 0) {
     return "";
   }
 
   const untrackedFiles = listResult.stdout
-    .split(/\r?\n/)
-    .map((file) => file.trim())
-    .filter(Boolean);
+    .split("\0")
+    .filter((file) => file.length > 0);
 
   if (untrackedFiles.length === 0) {
     return "";

@@ -6,7 +6,7 @@ export function getPermanentCommitModel(agentDir: string): string | undefined {
     const configPath = join(agentDir, "pi-commit.json");
     if (existsSync(configPath)) {
       const config = JSON.parse(readFileSync(configPath, "utf-8"));
-      return typeof config.model === "string" && config.model.trim() ? config.model : undefined;
+      return typeof config.model === "string" && config.model.trim() ? config.model.trim() : undefined;
     }
   } catch {
     // Ignore config read errors.

@@ -5,6 +5,7 @@ import {
   AuthStorage,
   ModelRegistry,
 } from "@mariozechner/pi-coding-agent";
+import extension from "./src/index";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -54,20 +55,25 @@ async function runTest() {
     ]
   });
 
-  const extensionPath = path.resolve("src/index.ts");
+  const extensionPath = path.resolve(".");
   const resourceLoader = new DefaultResourceLoader({
     cwd: projectDir,
     agentDir: tmpDir,
     additionalExtensionPaths: [extensionPath],
+    noContextFiles: true,
+    noSkills: true,
+    noPromptTemplates: true,
   });
   await resourceLoader.reload();
 
+  const models = await modelRegistry.getAvailable();
   const { session } = await createAgentSession({
     cwd: projectDir,
     resourceLoader,
     modelRegistry,
     authStorage,
     sessionManager: SessionManager.inMemory(),
+    model: models[0],
   });
 
   // Mock UI
@@ -85,11 +91,15 @@ async function runTest() {
     setWorkingMessage: () => {},
     setWidget: () => {},
     setTitle: () => {},
+    custom: () => ({ close: () => {}, requestRender: () => {} }),
   };
 
   await session.bindExtensions({
     uiContext: mockUI as any,
+    extensions: [extension],
   });
+
+  // console.log("Registered commands:", (session as any).commands?.map((c: any) => c.name));
 
   // 5. Run the /commit command
   // We need to mock the LLM response for the nested session

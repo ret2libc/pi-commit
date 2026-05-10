@@ -3,6 +3,7 @@ import { createAgentSession, SessionManager, DefaultResourceLoader, getAgentDir 
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { appendFile } from "node:fs/promises";
 
 async function runGit(args: string[], options: { cwd?: string; encoding?: BufferEncoding } = {}) {
   return new Promise<{ status: number | null; stdout: string; stderr: string }>((resolve) => {
@@ -123,8 +124,6 @@ export default function (pi: ExtensionAPI) {
 
       ctx.ui.notify(`Generating commit message using ${miniModel.id}...`, "info");
 
-      ctx.ui.notify(`Generating commit message using ${miniModel.id}...`, "info");
-
       const prompt = `You are an expert at writing git commit messages.
 Based on the following last 5 commit messages and the current diff, provide a meaningful, concise commit message.
 Follow the project style seen in the history.
@@ -135,8 +134,18 @@ Last commit messages:
 ${lastCommits}
 
 Current diff:
-${diff.slice(0, 20000)} ${diff.length > 20000 ? "\n...(diff truncated)..." : ""}
-`;
+` + "```diff\n" + diff.slice(0, 20000) + (diff.length > 20000 ? "\n...(diff truncated)..." : "") + "\n```\n";
+
+      const debugLog = join(ctx.cwd, "pi-commit-debug.log");
+      const log = async (msg: string) => {
+        try {
+          await appendFile(debugLog, msg + "\n");
+        } catch (e) {}
+        console.log(msg);
+      };
+      await log(`\n\n[${new Date().toISOString()}] --- PROMPT SENT TO LLM ---`);
+      await log(prompt);
+      await log("--------------------------");
 
       let commitMsg = "";
       try {
@@ -173,6 +182,10 @@ ${diff.slice(0, 20000)} ${diff.length > 20000 ? "\n...(diff truncated)..." : ""}
         ctx.ui.notify(`Failed to generate commit message: ${err instanceof Error ? err.message : String(err)}`, "error");
         return;
       }
+
+      await log(`[${new Date().toISOString()}] --- LLM RESPONSE ---`);
+      await log(commitMsg);
+      await log("--------------------");
 
       commitMsg = commitMsg.trim();
       // Remove potential markdown code block wrapping

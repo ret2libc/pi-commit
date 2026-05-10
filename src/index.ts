@@ -50,22 +50,22 @@ export default function (pi: ExtensionAPI) {
     description: "Generate a commit message and commit changes. Usage: /commit [model-id]",
     handler: async (args, ctx) => {
       const overrideModelId = args.trim();
-      // 1. Check if it's a git repo
-      const gitStatus = await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: ctx.cwd, encoding: "utf-8" });
+      // Run initial git commands in parallel
+      const [gitStatus, lastCommitsResult, stagedDiffResult, unstagedDiffResult] = await Promise.all([
+        runGit(["rev-parse", "--is-inside-work-tree"], { cwd: ctx.cwd, encoding: "utf-8" }),
+        runGit(["log", "-n", "5", "--no-merges", "--invert-grep", "--grep=dependabot", "--format=%B%n---"], { encoding: "utf-8", cwd: ctx.cwd }),
+        runGit(["diff", "--staged"], { encoding: "utf-8", cwd: ctx.cwd }),
+        runGit(["diff"], { encoding: "utf-8", cwd: ctx.cwd })
+      ]);
+
       if (gitStatus.status !== 0) {
         ctx.ui.notify("Not a git repository", "error");
         return;
       }
 
-      // 2. Get last 5 commit messages
-      const lastCommits = (await runGit(
-        ["log", "-n", "5", "--no-merges", "--invert-grep", "--grep=dependabot", "--format=%B%n---"],
-        { encoding: "utf-8", cwd: ctx.cwd }
-      )).stdout;
-
-      // 3. Get diff
-      const stagedDiff = (await runGit(["diff", "--staged"], { encoding: "utf-8", cwd: ctx.cwd })).stdout;
-      const unstagedDiff = (await runGit(["diff"], { encoding: "utf-8", cwd: ctx.cwd })).stdout;
+      const lastCommits = lastCommitsResult.stdout;
+      const stagedDiff = stagedDiffResult.stdout;
+      const unstagedDiff = unstagedDiffResult.stdout;
 
       let diff = stagedDiff;
       let isStaged = true;

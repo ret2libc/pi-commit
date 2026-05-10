@@ -32,8 +32,11 @@ async function runEntrypointSmokeTest() {
 
 async function runScenario(options: {
   name: string;
-  responseText: string;
+  responseText?: string;
+  responseTexts?: string[];
   expectedCommitMessage: string;
+  expectedPromptCount?: number;
+  expectedFollowUpPromptIncludes?: string;
   stagedDiff?: boolean;
   modifyTrackedFile?: boolean;
   untrackedFiles?: Array<{ name: string; content: string }>;
@@ -70,6 +73,7 @@ async function runScenario(options: {
     const confirms: Array<{ title: string; message: string }> = [];
     const promptMessages: string[] = [];
     let confirmCount = 0;
+    let promptCount = 0;
     let registeredHandler: ((args: string, ctx: any) => Promise<void>) | undefined;
     let subscribedListener: ((event: any) => void) | undefined;
     let createSessionOptions: any;
@@ -93,11 +97,13 @@ async function runScenario(options: {
             },
             prompt: async (prompt: string) => {
               promptMessages.push(prompt);
+              const responseText = options.responseTexts?.[promptCount] ?? options.responseText ?? "";
+              promptCount += 1;
               subscribedListener?.({
                 type: "message_update",
                 assistantMessageEvent: {
                   type: "text_delta",
-                  delta: options.responseText,
+                  delta: responseText,
                 },
               });
             },
@@ -143,8 +149,11 @@ async function runScenario(options: {
     assert.equal(lastCommitMsg, options.expectedCommitMessage);
     assert.equal(createSessionOptions.model.id, options.expectedSelectedModelId ?? "openai/gpt-5-mini");
     assert.equal(createSessionOptions.noTools, "all");
-    assert.equal(promptMessages.length, 1);
+    assert.equal(promptMessages.length, options.expectedPromptCount ?? 1);
     assert.ok(promptMessages[0].includes("Current diff:"));
+    if (options.expectedFollowUpPromptIncludes) {
+      assert.ok(promptMessages[1].includes(options.expectedFollowUpPromptIncludes));
+    }
     if (options.untrackedFiles?.length) {
       for (const untrackedFile of options.untrackedFiles) {
         assert.ok(promptMessages[0].includes(untrackedFile.name));
@@ -281,6 +290,24 @@ export async function runExtensionTests() {
     name: "structured-output",
     responseText: fixture("structured-message.json"),
     expectedCommitMessage: "feat: move commit prompt into a file\n\nAdd structured JSON parsing with raw-output fallback.",
+  });
+
+  await runScenario({
+    name: "long-title-retry",
+    responseTexts: [
+      JSON.stringify({
+        title:
+          "feat: this title is intentionally far longer than seventy-two characters so the model should retry",
+        body: "This is the first attempt.",
+      }),
+      JSON.stringify({
+        title: "feat: retry with a shorter title",
+        body: "This is the corrected message.",
+      }),
+    ],
+    expectedCommitMessage: "feat: retry with a shorter title\n\nThis is the corrected message.",
+    expectedPromptCount: 2,
+    expectedFollowUpPromptIncludes: "72 characters",
   });
 
   await runScenario({

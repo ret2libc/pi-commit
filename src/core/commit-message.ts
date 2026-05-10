@@ -11,6 +11,16 @@ export function parseCommitMessageOutput(raw: string): string | null {
   return fallback.length > 0 ? fallback : null;
 }
 
+export function isCommitMessageTitleTooLong(raw: string): boolean {
+  const structuredTitle = readStructuredCommitTitle(raw);
+  if (structuredTitle !== null) {
+    return structuredTitle.length > TITLE_MAX_LENGTH;
+  }
+
+  const freeformTitle = readFreeformCommitTitle(raw);
+  return freeformTitle.length > TITLE_MAX_LENGTH;
+}
+
 function parseStructuredCommitMessage(raw: string): { title: string; body?: string } | null {
   const candidate = unwrapFence(raw).trim();
   if (!candidate.startsWith("{") || !candidate.endsWith("}")) {
@@ -31,17 +41,47 @@ function parseStructuredCommitMessage(raw: string): { title: string; body?: stri
   }
 }
 
+function readStructuredCommitTitle(raw: string): string | null {
+  const candidate = unwrapFence(raw).trim();
+  if (!candidate.startsWith("{") || !candidate.endsWith("}")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(candidate) as Record<string, unknown>;
+    return typeof parsed.title === "string" ? normalizeCommitTitle(parsed.title) : "";
+  } catch {
+    return null;
+  }
+}
+
+function readFreeformCommitTitle(raw: string): string {
+  const candidate = unwrapFence(raw);
+  const clean = sanitizeLooseText(candidate);
+  if (!clean) {
+    return "";
+  }
+
+  const firstLineBreak = clean.indexOf("\n");
+  const title = firstLineBreak === -1 ? clean : clean.slice(0, firstLineBreak);
+  return title.trim();
+}
+
 function formatStructuredCommitMessage(message: { title: string; body?: string }): string {
   return message.body ? `${message.title}\n\n${message.body}` : message.title;
 }
 
 function sanitizeCommitTitle(title: string): string {
-  const clean = sanitizeLooseText(title).replace(/\s+/g, " ").trim();
+  const clean = normalizeCommitTitle(title);
   if (!clean) {
     return "";
   }
 
   return clean.length > TITLE_MAX_LENGTH ? clean.slice(0, TITLE_MAX_LENGTH).trimEnd() : clean;
+}
+
+function normalizeCommitTitle(title: string): string {
+  return sanitizeLooseText(title).replace(/\s+/g, " ").trim();
 }
 
 function sanitizeCommitBody(body: string): string {

@@ -5,7 +5,7 @@ A Pi extension that adds a `/commit` command to generate and execute git commits
 ## Features
 
 - **Automated Message Generation**: Analyzes your staged (or unstaged) changes and recent commit history to suggest a meaningful commit message.
-- **Git Best Practices**: Ensures the commit title (first line) is at most 72 characters long.
+- **Git Best Practices**: Retries overlong titles so the final commit title (first line) is at most 72 characters long.
 - **Project Style Awareness**: Uses the last 5 commit messages to match the existing project's commit style.
 - **Smart Model Selection**: Automatically tries to use a "cheap" model (like `gpt-4o-mini`, `claude-3-haiku`, or `gemini-flash`) for the generation task to save on costs.
 - **Interactive Workflow**: Previews the generated message and asks for confirmation before committing.

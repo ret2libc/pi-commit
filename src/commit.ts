@@ -2,7 +2,7 @@ import { getPermanentCommitModel } from "./core/config.ts";
 import { getGitSnapshot, type GitResult } from "./core/git.ts";
 import { selectCommitDiff } from "./core/diff.ts";
 import { buildCommitPrompt } from "./core/prompt.ts";
-import { parseCommitMessageOutput } from "./core/commit-message.ts";
+import { isCommitMessageTitleTooLong, parseCommitMessageOutput } from "./core/commit-message.ts";
 import { sanitizeCommitMessage } from "./core/sanitize.ts";
 import { selectCommitModel, type CommitModelLike } from "./core/model-selection.ts";
 
@@ -136,11 +136,12 @@ export function createCommitCommandHandler(
       }
     };
 
-    await log(`\n\n[${new Date().toISOString()}] --- PROMPT SENT TO LLM ---`);
-    await log(prompt);
-    await log("--------------------------");
-
+    const titleRetryPrompt =
+      "The previous commit title was longer than 72 characters. Rewrite the commit message so the title is at most 72 characters. Preserve the body if possible. Return only the corrected commit message.";
     let commitMsg = "";
+    let promptToSend = prompt;
+    let titleRetryCount = 0;
+    const maxTitleRetries = 1;
     try {
       const resourceLoader = deps.createResourceLoader({
         cwd: ctx.cwd,
@@ -165,7 +166,33 @@ export function createCommitCommandHandler(
         }
       });
 
-      await session.prompt(prompt);
+      while (true) {
+        commitMsg = "";
+        await log(`\n\n[${new Date().toISOString()}] --- PROMPT SENT TO LLM${titleRetryCount > 0 ? ` (retry ${titleRetryCount})` : ""} ---`);
+        await log(promptToSend);
+        await log("--------------------------");
+
+        await session.prompt(promptToSend);
+
+        await log(`\n\n[${new Date().toISOString()}] --- LLM RESPONSE${titleRetryCount > 0 ? ` (retry ${titleRetryCount})` : ""} ---`);
+        await log(commitMsg);
+        await log("--------------------");
+
+        if (isCommitMessageTitleTooLong(commitMsg)) {
+          if (titleRetryCount >= maxTitleRetries) {
+            ctx.ui.notify("Received commit message with a title longer than 72 characters", "error");
+            return;
+          }
+
+          titleRetryCount += 1;
+          promptToSend = titleRetryPrompt;
+          continue;
+        }
+
+        commitMsg = parseCommitMessageOutput(commitMsg) ?? "";
+        commitMsg = sanitizeCommitMessage(commitMsg);
+        break;
+      }
     } catch (error) {
       ctx.ui.notify(
         `Failed to generate commit message: ${error instanceof Error ? error.message : String(error)}`,
@@ -173,13 +200,6 @@ export function createCommitCommandHandler(
       );
       return;
     }
-
-    await log(`\n\n[${new Date().toISOString()}] --- LLM RESPONSE ---`);
-    await log(commitMsg);
-    await log("--------------------");
-
-    commitMsg = parseCommitMessageOutput(commitMsg) ?? "";
-    commitMsg = sanitizeCommitMessage(commitMsg);
 
     if (!commitMsg) {
       ctx.ui.notify("Received empty or invalid commit message from model", "error");

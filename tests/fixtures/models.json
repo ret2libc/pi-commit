@@ -1,0 +1,7 @@
+[
+  {"id": "openai/gpt-5"},
+  {"id": "openai/gpt-5-mini"},
+  {"id": "anthropic/claude-3.5-sonnet"},
+  {"id": "google/gemini-2.0-flash"},
+  {"id": "local/llama-3.1-8b"}
+]

@@ -5,3 +5,4 @@ dist/
 .pi/
 .env
 *.tsbuildinfo
+pi-commit-debug.log

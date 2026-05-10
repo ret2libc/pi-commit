@@ -16,8 +16,8 @@
   "author": "ret2libc",
   "license": "MIT",
   "dependencies": {
-    "@mariozechner/pi-ai": "^0.73.0",
-    "@mariozechner/pi-coding-agent": "^0.73.0",
+    "@earendil-works/pi-ai": "^0.74.0",
+    "@earendil-works/pi-coding-agent": "^0.74.0",
     "typebox": "^1.1.38"
   },
   "pi": {

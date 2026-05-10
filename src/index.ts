@@ -1,5 +1,5 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { createAgentSession, SessionManager, DefaultResourceLoader, getAgentDir } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, SessionManager, DefaultResourceLoader, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";

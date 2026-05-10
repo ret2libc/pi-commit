@@ -4,7 +4,7 @@ import {
   SessionManager,
   AuthStorage,
   ModelRegistry,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import extension from "./src/index";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";

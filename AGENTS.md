@@ -2,6 +2,7 @@
 
 - Whenever you need to create a git commit for this repo, use `/commit` rather than invoking `git commit` directly.
 - Before changing extension behavior, add or update a test like `test-extension.ts` or a future test file, verify it fails, implement the change, and verify it passes.
+- When a repo invariant is violated, treat it as a defect, not a formatting issue. Add a failing test and fix the implementation instead of silently truncating or rewriting the model output.
 - Always confirm the extension still works end-to-end before finishing.
 
 ## Working rules

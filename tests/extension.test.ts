@@ -9,6 +9,27 @@ function fixture(name: string) {
   return readFileSync(join(process.cwd(), "tests", "fixtures", name), "utf-8");
 }
 
+async function runEntrypointSmokeTest() {
+  const registrations: Array<{ kind: string; name: string }> = [];
+  const mod = await import("../src/index.ts");
+
+  assert.equal(typeof mod.default, "function");
+
+  mod.default({
+    registerFlag(name: string) {
+      registrations.push({ kind: "flag", name });
+    },
+    registerCommand(name: string, _spec: { description: string; handler: (args: string, ctx: any) => Promise<void> }) {
+      registrations.push({ kind: "command", name });
+    },
+  } as any);
+
+  assert.deepEqual(registrations, [
+    { kind: "flag", name: "commit-model" },
+    { kind: "command", name: "commit" },
+  ]);
+}
+
 async function runScenario(options: {
   name: string;
   responseText: string;
@@ -254,6 +275,8 @@ async function runNoChangesTest() {
 }
 
 export async function runExtensionTests() {
+  await runEntrypointSmokeTest();
+
   await runScenario({
     name: "structured-output",
     responseText: fixture("structured-message.json"),

@@ -141,7 +141,6 @@ Current diff:
         try {
           await appendFile(debugLog, msg + "\n");
         } catch (e) {}
-        console.log(msg);
       };
       await log(`\n\n[${new Date().toISOString()}] --- PROMPT SENT TO LLM ---`);
       await log(prompt);
